@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Quiz Result</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f0f8ff;
+      text-align: center;
+      padding: 60px;
+    }
+    .card {
+      background-color: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      display: inline-block;
+    }
+    h1 { color: #28a745; }
+    p { font-size: 20px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Quiz Completed!</h1>
+    <p id="scoreDisplay">Loading your score...</p>
+    <a href="/" style="text-decoration:none; color:white;">
+      <button style="padding: 10px 20px; background-color: #007bff; border: none; border-radius: 5px; color: white;">Take Again</button>
+    </a>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const score = params.get('score');
+    const total = params.get('total');
+    document.getElementById('scoreDisplay').innerText = `You scored ${score} out of ${total}`;
+  </script>
+</body>
+</html>

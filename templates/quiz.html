@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Quiz App</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      background-color: #f2f2f2;
+      color: #333;
+      display: flex;
+    }
+    .container {
+      flex: 3;
+      max-width: 1000px;
+      margin: 40px;
+      padding: 30px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+    .sidebar {
+      flex: 1;
+      background: #fff;
+      margin: 40px 20px 40px 0;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      height: fit-content;
+    }
+    .navigation {
+      display: flex;
+      flex-wrap: wrap;
+      max-width: 150px;
+    }
+    .nav-item {
+      display: inline-block;
+      width: 25px;
+      height: 25px;
+      text-align: center;
+      line-height: 25px;
+      border: 1px solid #ccc;
+      border-radius: 50%;
+      margin: 2px;
+      cursor: pointer;
+    }
+    .attempted { background-color: #28a745; color: white; }
+    .review { background-color: #ffc107; color: white; }
+    .unattempted { background-color: #dc3545; color: white; }
+
+    h1 {
+      text-align: center;
+      color: #0066cc;
+    }
+    .question {
+      margin-bottom: 20px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background-color: #f9f9f9;
+    }
+    .option {
+      margin-left: 10px;
+      margin-top: 5px;
+    }
+    .btn {
+      padding: 10px 20px;
+      margin: 10px 5px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .btn:hover {
+      background-color: #0056b3;
+    }
+    #result {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 20px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Interactive Quiz</h1>
+    <div id="quiz-container"></div>
+    <div id="controls">
+      <button class="btn" onclick="markForReview()">Mark for Review</button>
+      <button class="btn" id="next-btn" onclick="nextQuestion()">Next</button>
+      <button class="btn" onclick="submitQuiz()">Submit</button>
+    </div>
+  </div>
+  <div class="sidebar">
+    <h3>Navigation</h3>
+    <div class="navigation" id="nav"></div>
+    <p>Attempted: <span id="count-attempted">0</span></p>
+    <p>Review: <span id="count-review">0</span></p>
+    <p>Unattempted: <span id="count-unattempted">0</span></p>
+  </div>
+
+  <script>
+    let quizData = [], answers = [], currentIndex = 0, statusMap = [];
+
+    fetch('/get-questions')
+      .then(res => res.json())
+      .then(data => {
+        quizData = data;
+        answers = Array(data.length).fill(null);
+        statusMap = Array(data.length).fill('unattempted');
+        updateSidebar();
+        showQuestion();
+      });
+
+    function showQuestion() {
+      const q = quizData[currentIndex];
+      const container = document.getElementById('quiz-container');
+      container.innerHTML = '';
+      const div = document.createElement('div');
+      div.className = 'question';
+      div.innerHTML = `<p><strong>${currentIndex + 1}. ${q.question}</strong></p>`;
+      q.options.forEach((opt, i) => {
+        const optId = `q${q.id}_opt${i}`;
+        div.innerHTML += `<div class='option'><input type='radio' name='q${q.id}' id='${optId}' value='${opt}' ${answers[currentIndex] === opt ? 'checked' : ''}> <label for='${optId}'>${opt}</label></div>`;
+      });
+      container.appendChild(div);
+
+      document.getElementById('next-btn').style.display = (currentIndex === quizData.length - 1) ? 'none' : 'inline-block';
+    }
+
+    function nextQuestion() {
+      saveAnswer();
+      if (currentIndex < quizData.length - 1) {
+        currentIndex++;
+        showQuestion();
+      }
+    }
+
+    function saveAnswer() {
+      const q = quizData[currentIndex];
+      const selected = document.querySelector(`input[name='q${q.id}']:checked`);
+      answers[currentIndex] = selected ? selected.value : null;
+      if (statusMap[currentIndex] !== 'review') {
+        statusMap[currentIndex] = selected ? 'attempted' : 'unattempted';
+      }
+      updateSidebar();
+    }
+
+    function markForReview() {
+      const q = quizData[currentIndex];
+      const selected = document.querySelector(`input[name='q${q.id}']:checked`);
+      answers[currentIndex] = selected ? selected.value : null;
+      statusMap[currentIndex] = 'review';
+      updateSidebar();
+      nextQuestion();
+    }
+
+    function updateSidebar() {
+      const nav = document.getElementById('nav');
+      nav.innerHTML = '';
+      let attempted = 0, review = 0, unattempted = 0;
+      statusMap.forEach((status, i) => {
+        const btn = document.createElement('span');
+        btn.className = 'nav-item ' + status;
+        btn.innerText = i + 1;
+        btn.onclick = () => { currentIndex = i; showQuestion(); };
+        nav.appendChild(btn);
+        if (status === 'attempted') attempted++;
+        else if (status === 'review') review++;
+        else unattempted++;
+      });
+      document.getElementById('count-attempted').innerText = attempted;
+      document.getElementById('count-review').innerText = review;
+      document.getElementById('count-unattempted').innerText = unattempted;
+    }
+
+    function submitQuiz() {
+      saveAnswer();
+      const payload = quizData.map((q, i) => ({ id: q.id, answer: answers[i] || '' }));
+
+      fetch('/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: payload })
+      })
+      .then(res => res.json())
+      .then(scoreData => {
+        window.location.href = `/result?score=${scoreData.score}&total=${scoreData.total}`;
+      });
+    }
+  </script>
+</body>
+</html>
