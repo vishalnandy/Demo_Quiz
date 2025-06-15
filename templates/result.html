@@ -5,36 +5,86 @@
   <title>Quiz Result</title>
   <style>
     body {
+      margin: 0;
       font-family: 'Segoe UI', sans-serif;
-      background-color: #f0f8ff;
+      background: linear-gradient(135deg, #4e54c8, #8f94fb);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 1s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-card {
+      background: white;
+      padding: 40px 50px;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
       text-align: center;
-      padding: 60px;
+      width: 380px;
+      animation: slideUp 0.5s ease-out;
     }
-    .card {
-      background-color: white;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-      display: inline-block;
+
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
     }
-    h1 { color: #28a745; }
-    p { font-size: 20px; }
+
+    h1 {
+      color: #4e54c8;
+      margin-bottom: 20px;
+    }
+
+    .score {
+      font-size: 22px;
+      font-weight: bold;
+      color: #333;
+      margin: 10px 0;
+    }
+
+    .message {
+      font-size: 16px;
+      color: #666;
+      margin-top: 10px;
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background-color: #4e54c8;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .btn:hover {
+      background-color: #3b41c5;
+    }
   </style>
 </head>
 <body>
-  <div class="card">
+  <div class="result-card">
     <h1>Quiz Completed!</h1>
-    <p id="scoreDisplay">Loading your score...</p>
-    <a href="/" style="text-decoration:none; color:white;">
-      <button style="padding: 10px 20px; background-color: #007bff; border: none; border-radius: 5px; color: white;">Take Again</button>
-    </a>
+    <div class="score">You scored {{ score }} out of {{ total }}</div>
+    <div class="message">
+      {% if score / total >= 0.8 %}
+        Excellent work! 🎉
+      {% elif score / total >= 0.5 %}
+        Good job, keep practicing! 💪
+      {% else %}
+        Don't worry, try again and you'll improve! 😊
+      {% endif %}
+    </div>
+    <a href="/quiz" class="btn">Try Again</a>
   </div>
-
-  <script>
-    const params = new URLSearchParams(window.location.search);
-    const score = params.get('score');
-    const total = params.get('total');
-    document.getElementById('scoreDisplay').innerText = `You scored ${score} out of ${total}`;
-  </script>
 </body>
 </html>

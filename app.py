@@ -127,19 +127,21 @@ def login():
 def index():
     if 'user_name' not in session:
         return redirect(url_for('login'))
-    return render_template('quiz.html')
+    
+    user_name = session['user_name']  # Fetch from session
+    return render_template('quiz.html', user_name=user_name)
 
 @app.route('/get-questions')
 def get_questions():
     questions = Question.query.all()
     random.shuffle(questions)
     quiz = []
-    for idx, q in enumerate(questions):
+    for q in questions:
         quiz.append({
-            "id": idx + 1,
+            "id": q.id,
             "question": q.question,
             "options": [q.option_a, q.option_b, q.option_c, q.option_d],
-            "correct": q.correct_answer  # used only in backend
+            "correct": q.correct_answer  # still optional for backend, not sent to frontend
         })
     return jsonify(quiz)
 
@@ -147,11 +149,13 @@ def get_questions():
 def submit():
     user_answers = request.json.get('answers')
     questions = Question.query.all()
-    correct_answers = [q.correct_answer for q in questions]
+    correct_answer_map = {q.id: q.correct_answer for q in questions}
 
     score = 0
-    for idx, ans in enumerate(user_answers):
-        if idx < len(correct_answers) and ans['answer'] == correct_answers[idx]:
+    for ans in user_answers:
+        qid = ans.get('id')
+        selected = ans.get('answer')
+        if qid in correct_answer_map and selected == correct_answer_map[qid]:
             score += 1
 
     # Store result
@@ -171,8 +175,8 @@ def submit():
 
 @app.route('/result')
 def result_page():
-    score = request.args.get('score', 0)
-    total = request.args.get('total', 0)
+    score = int(request.args.get('score', 0))
+    total = int(request.args.get('total', 0))
     return render_template('result.html', score=score, total=total)
 
 if __name__ == '__main__':
