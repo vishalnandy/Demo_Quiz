@@ -36,7 +36,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), nullable=False, unique=True)
-    age = db.Column(db.Integer, nullable=False)
+    #age = db.Column(db.Integer, nullable=False)
 
 class Result(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -55,8 +55,10 @@ def load_questions_to_db():
         raise FileNotFoundError("questions.xlsx not found!")
 
     df = pd.read_excel(EXCEL_PATH)
-    db.drop_all()
-    db.create_all()
+
+    # Drop and recreate only the Question table
+    Question.__table__.drop(db.engine)
+    Question.__table__.create(db.engine)
 
     for _, row in df.iterrows():
         q = Question(
@@ -82,7 +84,7 @@ def register():
     if request.method == 'POST':
         name = request.form['name'].strip()
         email = request.form['email'].strip()
-        age = request.form['age']
+        #age = request.form['age']
 
         if not is_valid_email(email):
             flash("Invalid email format", "error")
@@ -93,7 +95,7 @@ def register():
             flash("User already registered", "error")
             return redirect(url_for('register'))
 
-        new_user = User(name=name, email=email, age=int(age))
+        new_user = User(name=name, email=email)
         db.session.add(new_user)
         db.session.commit()
 
@@ -102,8 +104,7 @@ def register():
 
         return redirect(url_for('index'))
 
-    students = User.query.all()
-    return render_template('register.html', students=students)
+    return render_template('register.html')  # Removed `students=students`
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
