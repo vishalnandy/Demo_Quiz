@@ -194,15 +194,18 @@
     let timer;
 
     fetch('/get-questions')
-      .then(res => res.json())
-      .then(data => {
-        quizData = data;
-        answers = Array(data.length).fill(null);
-        statusMap = Array(data.length).fill('unattempted');
-        updateSidebar();
-        showQuestion();
-        startTimer(60); // 1 minute
-      });
+  .then(res => res.json())
+  .then(data => {
+    quizData = data.map(q => {
+      const isMulti = q.correct.split(',').map(s => s.trim()).filter(Boolean).length > 1;
+      return { ...q, isMultiAnswer: isMulti };
+    });
+    answers = Array(data.length).fill(null);
+    statusMap = Array(data.length).fill('unattempted');
+    updateSidebar();
+    showQuestion();
+    startTimer(60); // 1 minute
+  });
 
     function showQuestion() {
       const q = quizData[currentIndex];
@@ -223,7 +226,7 @@
 
         div.innerHTML += `
           <div class='option'>
-            <input type='${isMultiAnswer ? 'checkbox' : 'radio'}'
+            <input type='${q.isMultiAnswer ? 'checkbox' : 'radio'}'
                    name='q${q.id}' 
                    id='${optId}' 
                    value='${opt}' 
@@ -240,10 +243,10 @@
 
     function saveAnswer() {
       const q = quizData[currentIndex];
-      const isMultiAnswer = q.answer && q.answer.includes(',');
 
-      if (isMultiAnswer) {
-        const selected = Array.from(document.querySelectorAll(`input[name='q${q.id}']:checked`)).map(el => el.value);
+      if (q.isMultiAnswer) {
+        const selected = Array.from(document.querySelectorAll(`input[name='q${q.id}']:checked`))
+                              .map(el => el.value);
         answers[currentIndex] = selected;
       } else {
         const selected = document.querySelector(`input[name='q${q.id}']:checked`);
@@ -298,24 +301,41 @@
     }
 
     function submitQuiz() {
-      saveAnswer();
+      // Always call saveAnswer() first
+      saveAnswer(); 
       clearInterval(timer);
 
-      const payload = quizData.map((q, i) => ({
-        id: q.id,
-        answer: Array.isArray(answers[i]) ? answers[i].join(',') : (answers[i] || '')
-      }));
+      const payload = quizData.map((q, i) => {
+        let userAnswer = answers[i];
 
-      fetch('/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers: payload })
-      })
-      .then(res => res.json())
-      .then(scoreData => {
-        window.location.href = `/result?score=${scoreData.score}&total=${scoreData.total}`;
+        if (Array.isArray(userAnswer)) {
+          userAnswer = userAnswer
+            .filter(a => a.trim() !== '')
+            .map(a => a.trim())
+            .sort()
+            .join(',');
+        } else if (typeof userAnswer === 'string') {
+          userAnswer = userAnswer.trim();
+        } else {
+          userAnswer = '';
+        }
+
+        return {
+          id: q.id,
+          answer: userAnswer
+        };
       });
-    }
+
+  fetch('/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answers: payload })
+  })
+  .then(res => res.json())
+  .then(scoreData => {
+    window.location.href = `/result?score=${scoreData.score}&total=${scoreData.total}`;
+  });
+}
 
     function startTimer(duration) {
       let time = duration;

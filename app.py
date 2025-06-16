@@ -7,16 +7,55 @@ import random
 import os
 import re
 
+# NLTK imports for paraphrasing
+import nltk
+# nltk.download('wordnet')
+# nltk.download('punkt')
+# nltk.download('averaged_perceptron_tagger')
+# nltk.download('omw-1.4')
+from nltk.corpus import wordnet
+from nltk.tokenize import word_tokenize
+from nltk import pos_tag
+
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
 
-# SQLAlchemy configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
     'DATABASE_URL',
     'postgresql+psycopg2://postgres.tvlobiffdkivwwpyolwi:Vishal1nand%40@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require'
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+
+# POS tag mapping from nltk -> wordnet
+def get_wordnet_pos(treebank_tag):
+    if treebank_tag.startswith('J'):
+        return wordnet.ADJ
+    elif treebank_tag.startswith('V'):
+        return wordnet.VERB
+    elif treebank_tag.startswith('N'):
+        return wordnet.NOUN
+    elif treebank_tag.startswith('R'):
+        return wordnet.ADV
+    else:
+        return None
+
+def paraphrase_sentence(sentence):
+    tokens = word_tokenize(sentence)
+    tagged = pos_tag(tokens)
+    new_words = []
+    for word, tag in tagged:
+        wn_tag = get_wordnet_pos(tag)
+        if wn_tag:
+            synsets = wordnet.synsets(word, pos=wn_tag)
+            if synsets:
+                lemmas = synsets[0].lemma_names()
+                synonym = lemmas[0].replace('_', ' ')
+                if synonym.lower() != word.lower():
+                    new_words.append(synonym)
+                    continue
+        new_words.append(word)
+    return ' '.join(new_words)
 
 # Excel file path
 EXCEL_PATH = 'questions.xlsx'
@@ -36,7 +75,6 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), nullable=False, unique=True)
-    #age = db.Column(db.Integer, nullable=False)
 
 class Result(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -55,8 +93,6 @@ def load_questions_to_db():
         raise FileNotFoundError("questions.xlsx not found!")
 
     df = pd.read_excel(EXCEL_PATH)
-
-    # Drop and recreate only the Question table
     Question.__table__.drop(db.engine)
     Question.__table__.create(db.engine)
 
@@ -84,7 +120,6 @@ def register():
     if request.method == 'POST':
         name = request.form['name'].strip()
         email = request.form['email'].strip()
-        #age = request.form['age']
 
         if not is_valid_email(email):
             flash("Invalid email format", "error")
@@ -104,7 +139,7 @@ def register():
 
         return redirect(url_for('index'))
 
-    return render_template('register.html')  # Removed `students=students`
+    return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -128,7 +163,7 @@ def index():
     if 'user_name' not in session:
         return redirect(url_for('login'))
     
-    user_name = session['user_name']  # Fetch from session
+    user_name = session['user_name']
     return render_template('quiz.html', user_name=user_name)
 
 @app.route('/get-questions')
@@ -137,11 +172,12 @@ def get_questions():
     random.shuffle(questions)
     quiz = []
     for q in questions:
+        paraphrased = paraphrase_sentence(q.question)
         quiz.append({
             "id": q.id,
-            "question": q.question,
+            "question": paraphrased,
             "options": [q.option_a, q.option_b, q.option_c, q.option_d],
-            "correct": q.correct_answer  # still optional for backend, not sent to frontend
+            "correct": q.correct_answer  # not used on frontend
         })
     return jsonify(quiz)
 
@@ -154,11 +190,21 @@ def submit():
     score = 0
     for ans in user_answers:
         qid = ans.get('id')
-        selected = ans.get('answer')
-        if qid in correct_answer_map and selected == correct_answer_map[qid]:
-            score += 1
+        submitted_answer = ans.get('answer', '').strip()
 
-    # Store result
+        if qid in correct_answer_map:
+            correct_answer = correct_answer_map[qid].strip()
+
+            submitted_set = set(filter(None, map(str.strip, submitted_answer.split(','))))
+            correct_set = set(filter(None, map(str.strip, correct_answer.split(','))))
+
+            print(f"Question ID {qid}")
+            print(f"Submitted: {submitted_set}")
+            print(f"Correct:   {correct_set}")
+
+            if submitted_set == correct_set:
+                score += 1
+
     ist = pytz.timezone('Asia/Kolkata')
     now_ist = datetime.now(ist)
 
@@ -170,6 +216,8 @@ def submit():
     )
     db.session.add(result)
     db.session.commit()
+
+    print(f"Q{id} → submitted: {submitted_set} | correct: {correct_set}")
 
     return jsonify({"score": score, "total": len(user_answers)})
 
