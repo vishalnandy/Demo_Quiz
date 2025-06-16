@@ -9,10 +9,13 @@ import re
 
 # NLTK imports for paraphrasing
 import nltk
-# nltk.download('wordnet')
-# nltk.download('punkt')
-# nltk.download('averaged_perceptron_tagger')
-# nltk.download('omw-1.4')
+nltk.data.path.append('C:\\Users\\vishal.nandy\\AppData\\Roaming\\nltk_data')
+
+nltk.download('wordnet')
+nltk.download('punkt', force=True)
+nltk.download('averaged_perceptron_tagger_eng')
+nltk.download('omw-1.4')
+nltk.download('punkt_tab')
 from nltk.corpus import wordnet
 from nltk.tokenize import word_tokenize
 from nltk import pos_tag
